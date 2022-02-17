@@ -1,0 +1,1735 @@
+
+This code produces all figures and tables presented in Marshall et al. orangutan paper in Oecologia.
+
+Code written by Andy Marshall (ajmarsha@umich.edu)
+
+All code confirmed functional in R 4.1.0 on 2021-06-16 
+
+# PREP
+
+## load packages and data  
+
+```{r}
+
+library(jagsUI)
+library(plotrix)
+
+load("ORAN_OUTPUT.Rdata")
+
+DSdata <- dget("DSdata.R")
+
+```
+
+## colors  
+
+```{r}
+
+col.habs <- c("#401D00", "#643E00", "#896007", "#AF8228",
+              "#D3A43B", "#F4C444", "#FFDD2D")
+my.alpha <- 100
+
+makeTransparent <- function(black, alpha = my.alpha){
+	newColor <- col2rgb(black)
+	apply(newColor, 2, function(curcoldata)			
+	     {rgb(red   = curcoldata[1],
+	          green = curcoldata[2],
+	          blue  = curcoldata[3],
+	          alpha = alpha,
+	          maxColorValue =  255)})
+}
+
+tGray     = makeTransparent("gray40")
+tBlack    = makeTransparent("black")
+tBlue     = makeTransparent("blue")
+tRBlue    = makeTransparent("royalblue3")
+tCFBlue   = makeTransparent("cornflowerblue")
+tRed      = makeTransparent("tomato2")
+tOrange   = makeTransparent("orange")
+tFGreen   = makeTransparent("Forestgreen")
+
+tcol.habs = makeTransparent(col.habs)
+
+```
+
+# FIGURES
+
+## SI Fig 1. Temporal trends in orangutans and covariates            
+
+This uses data corrected for detection probability (y ~ dbin(N, p) -> D), but does not include environmental stochasticity coming from the next hierarchical level of the Poisson distribution (N ~ dpois(lambda) -> ED).
+
+load & prep data
+
+```{r}
+#Derived density (sites lumped) corrected for detection (N[t]/area[t])
+tmpD <- data.frame(apply(apply(ORAN_DS$sims.list$D[, nmon, ], 
+                               MARGIN = c(1,2), mean), MARGIN = 2, mean),
+                    t(apply(apply(ORAN_DS$sims.list$D[,nmon,], 
+                                  MARGIN = c(1, 2), mean), MARGIN = 2, 
+                                  quantile, probs = c(0.025, 0.975))))
+colnames(tmpD) <- c("mean", "q2.5", "q97.5")
+
+time <- c("2007-October", "2015-December") #beginning and end months
+time <- paste(time, "-01", sep = '') #need day for Date class
+time <- as.Date(time, "%Y-%B-%d") #make Date class
+time <- seq(time[1], time[2], by = "months") #generate months between beginning and end months
+
+
+tmin <- read.csv("Matrix_tmin.csv", header = TRUE)
+tmin <- t(data.matrix(tmin[-1]))
+tmin[is.infinite(tmin)] <- NA
+
+tmax <- read.csv("Matrix_tmax.csv", header = TRUE)
+tmax <- t(data.matrix(tmax[-1]))
+tmax[is.infinite(tmax)] <- NA
+
+rain <- read.csv("Matrix_rain.csv", header = TRUE)
+rain <- t(data.matrix(rain[-1]))
+rain[is.infinite(rain)] <- NA
+
+stem <- read.csv("Matrix2_StemsMRfruits.csv", header = TRUE)
+stem <- t(data.matrix(stem[-1]))
+stem[is.infinite(stem)] <- NA
+
+tempL <- matrix(NA, nrow = 198, ncol = 7)
+tempH <- matrix(NA, nrow = 198, ncol = 7)
+rain2 <- matrix(NA, nrow = 198, ncol = 7)
+stem2 <- matrix(NA, nrow = 198, ncol = 7)
+
+for(tt in nmon){
+  tempL[tt,1] <- mean(tmin[tt:(tt+1),1:4], na.rm = TRUE)
+  tempL[tt,2] <- mean(tmin[tt:(tt+1),5:7], na.rm = TRUE)
+  tempL[tt,3] <- mean(tmin[tt:(tt+1),8:12], na.rm = TRUE)
+  tempL[tt,4] <- mean(tmin[tt:(tt+1),13:16], na.rm = TRUE)
+  tempL[tt,5] <- mean(tmin[tt:(tt+1),17:21], na.rm = TRUE)
+  tempL[tt,6] <- mean(tmin[tt:(tt+1),22:23], na.rm = TRUE)
+  tempL[tt,7] <- mean(tmin[tt:(tt+1),24:27], na.rm = TRUE)
+  tempH[tt,1] <- mean(tmax[tt:(tt+1),1:4], na.rm = TRUE)
+  tempH[tt,2] <- mean(tmax[tt:(tt+1),5:7], na.rm = TRUE)
+  tempH[tt,3] <- mean(tmax[tt:(tt+1),8:12], na.rm = TRUE)
+  tempH[tt,4] <- mean(tmax[tt:(tt+1),13:16], na.rm = TRUE)
+  tempH[tt,5] <- mean(tmax[tt:(tt+1),17:21], na.rm = TRUE)
+  tempH[tt,6] <- mean(tmax[tt:(tt+1),22:23], na.rm = TRUE)
+  tempH[tt,7] <- mean(tmax[tt:(tt+1),24:27], na.rm = TRUE)
+  rain2[tt,1] <- mean(rain[tt:(tt+1),1:4], na.rm = TRUE)
+  rain2[tt,2] <- mean(rain[tt:(tt+1),5:7], na.rm = TRUE)
+  rain2[tt,3] <- mean(rain[tt:(tt+1),8:12], na.rm = TRUE)
+  rain2[tt,4] <- mean(rain[tt:(tt+1),13:16], na.rm = TRUE)
+  rain2[tt,5] <- mean(rain[tt:(tt+1),17:21], na.rm = TRUE)
+  rain2[tt,6] <- mean(rain[tt:(tt+1),22:23], na.rm = TRUE)
+  rain2[tt,7] <- mean(rain[tt:(tt+1),24:27], na.rm = TRUE)
+  stem2[tt,1] <- mean(stem[tt:(tt+1),1:4], na.rm = TRUE)
+  stem2[tt,2] <- mean(stem[tt:(tt+1),5:7], na.rm = TRUE)
+  stem2[tt,3] <- mean(stem[tt:(tt+1),8:12], na.rm = TRUE)
+  stem2[tt,4] <- mean(stem[tt:(tt+1),13:16], na.rm = TRUE)
+  stem2[tt,5] <- mean(stem[tt:(tt+1),17:21], na.rm = TRUE)
+  stem2[tt,6] <- mean(stem[tt:(tt+1),22:23], na.rm = TRUE)
+  stem2[tt,7] <- mean(stem[tt:(tt+1),24:27], na.rm = TRUE)
+}
+tempL <- tempL[nmon,]
+tempH <- tempH[nmon,]
+rain2 <- rain2[nmon,]
+stem2 <- stem2[nmon,]
+
+for(i in 1:7){
+  for(j in 1:99){
+    if(is.nan(tempL[j,i])){
+      tempL[j,i] <- mean(tempL[c(j-1, j+1),i])
+    }
+    if(is.nan(tempH[j,i])){
+      tempH[j,i] <- mean(tempH[c(j-1, j+1),i])
+    }
+    if(is.nan(rain2[j,i])){
+      rain2[j,i] <- mean(rain2[c(j-1, j+1),i])
+    }
+  }
+}
+tempL[47,2] <- tempL[46,2] <- mean(tempL[c(45,48),2])
+tempH[47,2] <- tempH[46,2] <- mean(tempH[c(45,48),2])
+rain2[47,2] <- rain2[46,2] <- mean(rain2[c(45,48),2])
+
+temp <- data.frame(apply(tempL, MARGIN = 1, mean), 
+                   apply(tempL, MARGIN = 1, mean) - apply(tempL, MARGIN = 1, sd),
+                   apply(tempL, MARGIN = 1, mean) + apply(tempL, MARGIN = 1, sd),
+                   apply(tempH, MARGIN = 1, mean), 
+                   apply(tempH, MARGIN = 1, mean) - apply(tempH, MARGIN = 1, sd),
+                   apply(tempH, MARGIN = 1, mean) + apply(tempH, MARGIN = 1, sd))
+colnames(temp) <- c("meanL","LsdL", "UsdL", "meanH","LsdH", "UsdH")
+
+rain <- data.frame(apply(rain2, MARGIN = 1, mean, na.rm = TRUE), 
+                   apply(rain2, MARGIN = 1, mean, na.rm = TRUE) - 
+                        apply(rain2, MARGIN = 1, sd, na.rm = TRUE), 
+                   apply(rain2, MARGIN = 1, mean, na.rm = TRUE) + 
+                        apply(rain2, MARGIN = 1, sd, na.rm = TRUE))
+colnames(rain) <- c("mean","Lsd", "Usd")
+
+fruit <- data.frame(apply(stem2, MARGIN = 1, mean, na.rm = TRUE), 
+                   apply(stem2, MARGIN = 1, mean, na.rm = TRUE) - 
+                        apply(stem2, MARGIN = 1, sd, na.rm = TRUE), 
+                   apply(stem2, MARGIN = 1, mean, na.rm = TRUE) + 
+                        apply(stem2, MARGIN = 1, sd, na.rm = TRUE))
+colnames(fruit) <- c("mean","Lsd", "Usd")
+
+```
+
+make plot
+
+```{r}
+
+mar.left <- c(1, 8, 1, 0)
+cex.axis <- 1
+cex.num  <- 1
+cex.labs <- 1
+
+pdf(file = "Marshall-SI-Fig1.pdf", height = 10, width = 10)
+  
+par(oma = c(6, 2, 2, 2))
+
+# A: orangutans
+
+par(fig = c(0, 1, 0.75, 1), mar = mar.left)
+plot(tmpD$mean ~ time,
+     type = "l",
+     col = "white",
+     ylim = c(0, 9),
+     ylab = "", xlab = "",
+     xaxt = 'n', yaxt = "n",
+     bty = 'n', col.axis = "white")
+
+polygon(c(time, rev(time)),
+     c(tmpD$q2.5, rev(tmpD$q97.5)),
+     border = NA,
+     col = tOrange)
+
+points(tmpD$mean ~ time,
+      type = "l",
+      lwd = 1.5,
+      col = "darkorange")
+
+axis (side = 2, 
+      at = c(0, 4, 8),
+      labels = c("0", "4", "8"), 
+      cex.axis = cex.axis,
+      las = 1)
+
+text (time[1], 9.5, 
+      labels ="(a)", 
+      pos = 1,
+      cex = cex.num)
+
+mtext (side = 2, text = ("Orangutan\ndensity   "),
+       las = 1, 
+       outer = FALSE, cex = cex.labs, 
+       line = 4, at = 5)
+
+mtext (side = 2, text = expression(paste("(indiv ",km^-2,")")),
+       las = 1, 
+       outer = FALSE, cex = cex.labs, 
+       line = 4, at = 3.3)
+
+
+mtext (side = 2, text = "Stems with\nM or R fruit\n per hectare",
+       las = 1, 
+       outer = FALSE, cex = cex.labs, 
+       line = 1.0, at = 45)
+
+axis (side = 1,
+      at = c(time[3], time[15], time[27], time[39], time[51], 
+             time[63], time[75], time[87], time[99]),
+      labels = c("", "", "", "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      line = 0.1)
+
+axis (side = 1,
+      at = c(time[6], time[9], time[12], time[18], time[21], 
+             time[24], time[30], time[33], time[36], time[42],
+             time[45], time[48], time[54], time[57], time[60],
+             time[66], time[69], time[72], time[78], time[81],
+             time[84], time[90], time[93], time[96]),
+      labels = c("", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      col.ticks = "gray60",
+      lwd.ticks = 0.2,
+      line = 0.1)
+
+# B: % stems with mature / ripe fruit
+
+par(fig = c(0, 1, 0.5, 0.74), new = TRUE, mar = mar.left)
+plot(fruit$mean ~ time,
+     type = "l",
+     col = "white",
+     ylim = c(0, 94),
+     ylab = "", xlab = "",
+     xaxt = 'n', yaxt = "n",
+     bty = 'n', col.axis = "white")
+
+polygon(c(time, rev(time)),
+     c(fruit$Lsd, rev(fruit$Usd)),
+     border = NA,
+     col = tFGreen)
+
+points(fruit$mean ~ time,
+      type = "l",
+      lwd = 1.5,
+      col = "Forestgreen")
+
+axis (side = 2, 
+      at = c(0, 45, 90),
+      labels = c("0", "45", "90"), 
+      cex.axis = cex.axis,
+      las = 1)
+
+mtext (side = 2, text = "Stems with\nM or R fruit\n per hectare",
+       las = 1, 
+       outer = FALSE, cex = cex.labs, 
+       line = 4.5, at = 45)
+
+text (time[1], 102, 
+      labels ="(b)",
+      pos = 1,
+      cex = cex.num)
+
+axis (side = 1,
+      at = c(time[3], time[15], time[27], time[39], time[51], 
+             time[63], time[75], time[87], time[99]),
+      labels = c("", "", "", "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      line = 0.1)
+
+axis (side = 1,
+      at = c(time[6], time[9], time[12], time[18], time[21], 
+             time[24], time[30], time[33], time[36], time[42],
+             time[45], time[48], time[54], time[57], time[60],
+             time[66], time[69], time[72], time[78], time[81],
+             time[84], time[90], time[93], time[96]),
+      labels = c("", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      col.ticks = "gray40",
+      lwd.ticks = 0.2,
+      line = 0.1)
+
+
+# C: rainfall
+
+par(fig = c(0, 1, 0.25, 0.5), new = TRUE, mar = mar.left)
+plot(rain$mean ~ time,
+     type = "l",
+     col = "white",
+     ylim = c(0, 280),
+     ylab = "", xlab = "",
+     xaxt = 'n', yaxt = "n",
+     bty = 'n',
+     cex.axis = cex.axis, col.axis = "white")
+
+polygon(c(time, rev(time)),
+     c(rain$Lsd, rev(rain$Usd)),
+     border = NA,
+     col = tRBlue)
+
+points(rain$mean ~ time,
+      type = "l",
+      lwd = 1.5,
+      col = "royalblue3")
+
+axis (side = 2, 
+      at = c(0, 125, 250),
+      labels = c("0", "125", "250"), 
+      cex.axis = cex.axis,
+      las = 1)
+
+mtext (side = 2, text = "Rainfall\n(mm)  ",
+       las = 1, 
+       outer = FALSE, cex = cex.labs, 
+       line = 5, at = 125)
+
+text (time[1], 295, 
+      labels ="(c)", 
+      pos = 1,
+      cex = cex.num)
+axis (side = 1,
+      at = c(time[3], time[15], time[27], time[39], time[51], 
+             time[63], time[75], time[87], time[99]),
+      labels = c("", "", "", "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      line = 0.1)
+
+axis (side = 1,
+      at = c(time[6], time[9], time[12], time[18], time[21], 
+             time[24], time[30], time[33], time[36], time[42],
+             time[45], time[48], time[54], time[57], time[60],
+             time[66], time[69], time[72], time[78], time[81],
+             time[84], time[90], time[93], time[96]),
+      labels = c("", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      col.ticks = "gray40",
+      lwd.ticks = 0.2,
+      line = 0.1)
+
+# D: temperature
+par(fig = c(0, 1, 0, 0.25), new = TRUE, mar = mar.left)
+plot(temp$meanH ~ time,
+     type = "l",
+     col = "white",
+     ylim = c(17, 33.5),
+     ylab = "", xlab = "",
+     xaxt = 'n', yaxt = "n",
+     bty = 'n',
+     cex.axis = cex.axis)
+
+polygon(c(time, rev(time)),
+     c(temp$LsdH, rev(temp$UsdH)),
+     border = NA,
+     col = tRed)
+
+points(temp$meanH ~ time,
+      type = "l",
+      lwd = 1.5,
+      col = "tomato2")
+
+polygon(c(time, rev(time)),
+     c(temp$LsdL, rev(temp$UsdL)),
+     border = NA,
+     #border = "gray60",
+     col = tCFBlue)
+
+points(temp$meanL ~ time,
+      type = "l",
+      lwd = 1.5,
+      col = "cornflowerblue")
+
+axis (side = 2, 
+      at = c(18, 25, 32),
+      labels = c("18", "25", "32"), 
+      cex.axis = cex.axis,
+      las = 1)
+
+mtext (side = 2, text = "Max & Min \ntemperature\n(°C)      ",
+       las = 1, 
+       outer = FALSE, cex = cex.labs, 
+       line = 4.5, at = 25)
+
+text (time[1], 35, 
+      labels ="(d)",
+      pos = 1,
+      col = "gray40",
+      cex = cex.num)
+
+axis (side = 1,
+      at = c(time[3], time[15], time[27], time[39], time[51], 
+             time[63], time[75], time[87], time[99]),
+      labels = c("2008", "", "2010", "", "2012", "", "2014", "", "2016"),
+      cex.axis = cex.axis, 
+      las = 1,
+      line = 0.1)
+
+axis (side = 1,
+      at = c(time[6], time[9], time[12], time[18], time[21], 
+             time[24], time[30], time[33], time[36], time[42],
+             time[45], time[48], time[54], time[57], time[60],
+             time[66], time[69], time[72], time[78], time[81],
+             time[84], time[90], time[93], time[96]),
+      labels = c("", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      col.ticks = "gray40",
+      lwd.ticks = 0.2,
+      line = 0.1)
+
+
+dev.off()
+
+```
+
+
+## Fig 2. Orangutan spatial variation violinplot                  
+
+This uses data corrected for detection probability (y ~ dbin(N, p) -> D), but does not include environmental stochasticity coming from the next hierarchical level of the Poisson distribution (N ~ dpois(lambda) -> ED).
+
+```{r}
+
+tmpHD <- data.frame(apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                MARGIN = c(2, 3), mean))
+colnames(tmpHD) <- c("PS", "FS", "AB", "LS", "LG", "UG", "MO")
+
+#pdf(file = "Marshall-Fig2.pdf", height = 8, width = 10)
+
+setEPS()
+postscript(file = "Marshall-Fig2.eps", height = 8, width = 10)
+
+par(oma = c(2, 3, 0, 1))
+
+violin_plot(tmpHD, col = col.habs, 
+            violin_width = 0.75,
+            show_outliers = TRUE,
+            ann = FALSE,
+            axes = FALSE,
+            median_col = "black",
+            show_mean = TRUE,
+            mean_pch_col = "white",
+            box_width = 0.04,
+            xlab = "", ylab = "")
+
+axis(side = 1, 
+      at = c(1:7),
+      labels = c("Peat\nswamp", "Freshwater\nswamp", 
+                 "Alluvial\nbench", "Lowland\nsandstone", 
+                 "Lowland\ngranite", "Upland\ngranite",
+                 "Montane"),
+      line = 0, padj = 0.5,
+      cex.axis = 1,
+      las = 0.5)
+
+#calculate medians
+meds <- apply(tmpHD, 2, median)
+
+axis (side = 2, 
+      at = c(0, 5, 10, 15, 20),
+      labels = c("0", "5", "10", "15", "20"), 
+      cex.axis = 1,
+      las = 1)
+
+# highlight medians
+
+for (i in c(1:7)) {
+segments(i - 0.1, meds[i], i + 0.1, meds[i], 
+         col = "black", lwd = 2.25)
+     segments(i - 0.1, meds[i], i + 0.1, meds[i], 
+         col = "orange", lwd = 1.5)
+}
+
+mtext (side = 2, text = expression(paste			("Orangutan density (individuals ",km^-2,")")),
+       outer = FALSE, cex = 1, line = 2.5)
+
+dev.off()
+
+```
+
+## Fig 3. Population disperion across forest types  
+
+This uses derived density (per habitat) corrected for detection (N[j]/area[j])
+
+Multiply density per month by the area of each forest type (km)
+
+```{r}
+
+#Habitat labels
+labs <- c("PS", "FS", "AB", "LS", "LG", "UG", "MO")
+
+tmpDH <- data.frame(apply(apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                  MARGIN = c(1, 3), mean), MARGIN = 2, mean),
+                     t(apply(apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                    MARGIN = c(1,3), mean), MARGIN = 2,
+                               quantile, probs = c(0.025, 0.25, 0.75, 0.975))),
+                      labs)
+
+
+tmpHD <- data.frame(apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                MARGIN = c(2, 3), mean))
+
+km <- c(1.937601, 2.769927, 1.185072, 2.069925, 2.497293, 2.199417, 2.592972)
+total.area <- sum(km)
+
+
+oh.count <- function(x){
+  x * km
+}
+
+# calculate number of orangutans in the forest type that month
+hab.counts <- apply(tmpHD, 
+                    MARGIN = 1, 
+                    FUN = oh.count)
+monthly.total <-  colSums(hab.counts)
+
+percent.pop <- function(x){
+  x / monthly.total
+}
+
+ hab.percent <- apply(hab.counts, 
+                    MARGIN = 1, 
+                    FUN = percent.pop)
+
+# check math
+rowSums(hab.percent)
+
+```
+
+produce figure
+
+```{r}
+
+
+time <- c("2007-October", "2015-December") #beginning and end months
+time <- paste(time, "-01", sep = '') #need day for Date class
+time <- as.Date(time, "%Y-%B-%d") #make Date class
+time <- seq(time[1], time[2], by = "months") #generate months between beginning and end months
+
+#pdf(file = "Marshall-Fig3.pdf", height = 10, width = 8)
+
+setEPS()
+postscript(file = "Marshall-Fig3.eps", 
+           height = 10, width = 8)
+
+plot.matrix <- matrix(c(1, 2, 3,  4, 5, 6, 7, 8),
+                        byrow = TRUE, nrow = , ncol = 1)
+
+layout(mat = plot.matrix)
+
+mar.left <- c(1, 8, 1, 0)
+cex.axis <- 1.2
+cex.num  <- 1.2
+cex.labs <- 1.2
+box.letters <- c("(g) Peat swamp", 
+                 "(f) Freshwater swamp",
+                 "(e) Alluvial bench",
+                 "(d) Lowland sandstone",
+                 "(c) Lowland granite",
+                 "(b) Upland granite",
+                 "(a) Montane")
+y.lims     <- rep(17, 7)
+axis.cols  <- c("white", "white", "white", "white", "white", "white", "white")
+
+par(oma = c(4, 3, 2, 2))
+
+for (i in 7:1) {
+par(mar = mar.left)
+plot(hab.percent[, i] ~ time,
+     type = "l",
+     lwd = 1.5,
+     col = col.habs[i],
+     ylim = c(0, 1),
+     ylab = "",
+     xlab = "",
+     yaxt = "n",
+     xaxt = "n",
+     col.axis = axis.cols[i],
+     bty = 'n')
+
+polygon(c(time, rev(time)),
+     c(hab.percent[, i], rep(0, 99)),
+     border = "gray40",
+     col = col.habs[i])
+
+axis (side = 2, 
+      at = c(0, 0.5, 1),
+      labels = c("0", "0.5", "1"), 
+      cex.axis = cex.axis,
+      las = 1)
+
+axis (side = 1,
+      at = c(time[3], time[15], time[27], time[39], time[51], 
+             time[63], time[75], time[87], time[99]),
+      labels = c("", "", "", "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      line = 0.1)
+
+axis (side = 1,
+      at = c(time[6], time[9], time[12], time[18], time[21], 
+             time[24], time[30], time[33], time[36], time[42],
+             time[45], time[48], time[54], time[57], time[60],
+             time[66], time[69], time[72], time[78], time[81],
+             time[84], time[90], time[93], time[96]),
+      labels = c("", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      col.ticks = "gray20",
+      lwd.ticks = 0.2,
+      line = 0.1)
+
+text (time[1], 0.90, 
+      labels = box.letters[i], 
+      pos = 4,
+      cex = cex.labs)
+}
+
+par(mar = c(1, 9.5, 1, 1.75))
+stackpoly(hab.percent, stack = TRUE,
+          col = col.habs,
+          col.axis = "white",
+          axis2 = FALSE,
+          axis4 = FALSE,   
+          ylim = c(0, 1),
+          xat = c(4, 16, 28, 40, 52, 64, 76, 88, 99),
+          xaxlab = c("", "", "", "", "", "", "", "", ""))
+
+axis (side = 1,
+          at = c(4, 16, 28, 40, 52, 64, 76, 88, 99),
+          labels = c("2008", "", "2010", "", "2012", "", "2014", "", "2016"),
+          cex.axis = cex.axis)
+
+axis (side = 1,
+      at = c(7, 10, 13, 19, 22, 25, 31, 34, 37,
+             43, 46, 49, 55, 58, 61, 67, 70, 73,
+             79, 82, 85, 91, 94, 97),
+      labels = c("", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", "",
+                 "", "", "", "", "", ""),
+      cex.axis = cex.axis, 
+      las = 1,
+      col.ticks = "gray60",
+      lwd.ticks = 0.2,
+      line = 0)
+
+axis(side = 2, 
+      at = c(0.0085, 0.5,1),
+      labels = c("0", "0.5", "1"), 
+      cex.axis = 1.2,
+      las = 1,
+      line = 1.70)
+
+axis(side = 2, 
+      at = c(0.85),
+      labels = c("h. All forest types"), 
+      cex.axis = cex.labs,
+      col.axis = "white",
+      las = 1,
+      line = -10.25,
+      lwd.ticks = -0.1,
+      lwd = 0)
+
+mtext (side = 2, text = "Proportion of total orangutan sightings",
+       outer = TRUE, cex = 1, line = -2.5)
+
+dev.off()
+
+```
+
+
+## Fig 4. Model betas and modeled density by forest type
+
+### extract beta coefficients from full model
+
+```{r}
+
+betas <- rbind(ORAN_DS$mean$betaf,
+               ORAN_DS$mean$betar,
+               ORAN_DS$mean$betaH,
+               ORAN_DS$mean$betaL,
+               ORAN_DS$sd$betaf,
+               ORAN_DS$sd$betar,
+               ORAN_DS$sd$betaH,
+               ORAN_DS$sd$betaL,
+               ORAN_DS$q2.5$betaf,
+               ORAN_DS$q2.5$betar,
+               ORAN_DS$q2.5$betaH,
+               ORAN_DS$q2.5$betaL,
+               ORAN_DS$q97.5$betaf,
+               ORAN_DS$q97.5$betar,
+               ORAN_DS$q97.5$betaH,
+               ORAN_DS$q97.5$betaL,
+               ORAN_DS$q25$betaf,
+               ORAN_DS$q25$betar,
+               ORAN_DS$q25$betaH,
+               ORAN_DS$q25$betaL,
+               ORAN_DS$q75$betaf,
+               ORAN_DS$q75$betar,
+               ORAN_DS$q75$betaH,
+               ORAN_DS$q75$betaL)
+
+rownames(betas) <- c("ORAN_DS$mean$betaf",
+               "ORAN_DS$mean$betar",
+               "ORAN_DS$mean$betaH",
+               "ORAN_DS$mean$betaL",
+               "ORAN_DS$sd$betaf",
+               "ORAN_DS$sd$betar",
+               "ORAN_DS$sd$betaH",
+               "ORAN_DS$sd$betaL",
+               "ORAN_DS$q2.5$betaf",
+               "ORAN_DS$q2.5$betar",
+               "ORAN_DS$q2.5$betaH",
+               "ORAN_DS$q2.5$betaL",
+               "ORAN_DS$q97.5$betaf",
+               "ORAN_DS$q97.5$betar",
+               "ORAN_DS$q97.5$betaH",
+               "ORAN_DS$q97.5$betaL",
+               "ORAN_DS$q25$betaf",
+               "ORAN_DS$q25$betar",
+               "ORAN_DS$q25$betaH",
+               "ORAN_DS$q25$betaL",
+               "ORAN_DS$q75$betaf",
+               "ORAN_DS$q75$betar",
+               "ORAN_DS$q75$betaH",
+               "ORAN_DS$q75$betaL")
+
+colnames(betas) <- c("AB", "FS", "LG", "LS", "MO", "PS", "UG")
+
+bs <- as.data.frame(betas)
+bs <- t(bs)
+n <- c(3, 2, 5, 4, 7, 1, 6)
+bs <- cbind(bs, n)
+
+bs <- bs[order(n), ]
+
+write.csv(bs, "fullmodelbetas.csv")
+
+b <- read.csv("/Users/ajmarsha/Dropbox/sedang diproses/*GP OH habitat dispersion/figs/data/fullmodelbetas.csv", header = TRUE)
+
+b
+  
+```
+
+
+### model density as a function of predictors
+
+#### fruit 
+```{r}
+
+#Range of fruit availability
+range.fruit <- seq(0, 100, 0.1)
+
+#Standardize fruit availability range
+sim.fruit <- (range.fruit - mean(range.fruit))/sd(range.fruit)
+
+#Function to predict mean abundance
+problam <- function(params, x){
+  lam <- exp(params[1] + params[2]*x)
+  return(lam)
+}
+
+# Extract model parameters
+
+f <- t(ORAN_DS$sims.list$betaf)  #  fruit beta
+h <- t(ORAN_DS$sims.list$alpha)
+o <- as.numeric(t(ORAN_DS$sims.list$omega))
+d <- (ORAN_DS$sims.list$D)
+
+nhab <- 7
+
+#Initialize array (Number of habitats, range of fruit, number of MCMC iterations)
+habitat <- array(data = 0, 
+                 dim = c(nhab, length(sim.fruit), length(h[1,])))
+
+#Simulate predicted mean 
+for(i in 1:nhab){
+     habitat[i,,] <- apply(rbind(h[i, ], f[i, ]), 2, problam, x = sim.fruit)
+}
+
+#Initialize array to summarize MCMC
+plothab <- array(data = 0, dim = c(length(sim.fruit), nhab))
+
+
+#Summarize MCMC
+for(i in 1:nhab){
+     plothab[,i] <- apply(habitat[i, , ], 1, mean)
+}
+
+#Convert to data frame
+plothabf <- as.data.frame(cbind(sim.fruit, plothab))
+
+```
+
+#### rain
+```{r}
+#Range of rain
+range.rain <- seq(0, 260, 0.2)
+
+#Standardize rain range
+sim.rain <- (range.rain - mean(range.rain))/sd(range.rain)
+
+#Function to predict mean abundance
+problam <- function(params, x){
+  lam <- exp(params[1] + params[2]*x)
+  return(lam)
+}
+
+# Extract model parameters
+
+r <- t(ORAN_DS$sims.list$betar)  # rain beta
+h <- t(ORAN_DS$sims.list$alpha)
+o <- as.numeric(t(ORAN_DS$sims.list$omega))
+d <- (ORAN_DS$sims.list$D)
+
+nhab <- 7
+
+#Initialize array (Number of habitats, range of rain, number of MCMC iterations)
+habitat <- array(data = 0, 
+                 dim = c(nhab, length(sim.rain), length(h[1,])))
+
+#Simulate predicted mean 
+for(i in 1:nhab){
+     habitat[i,,] <- apply(rbind(h[i, ], r[i, ]), 2, problam, x = sim.rain)
+}
+
+#Initialize array to summarize MCMC
+plothab <- array(data = 0, dim = c(length(sim.rain), nhab))
+
+
+#Summarize MCMC
+for(i in 1:nhab){
+     plothab[,i] <- apply(habitat[i, , ], 1, mean)
+}
+
+#Convert to data frame
+plothabr <- as.data.frame(cbind(sim.rain, plothab))
+
+```
+
+
+#### high temp
+```{r}
+#Range of rain
+range.high <- seq(24, 36, 0.01)
+
+#Standardize rain range
+sim.high <- (range.high - mean(range.high))/sd(range.high)
+
+#Function to predict mean abundance
+problam <- function(params, x){
+  lam <- exp(params[1] + params[2]*x)
+  return(lam)
+}
+
+# Extract model parameters
+
+H <- t(ORAN_DS$sims.list$betaH)  # high temp beta
+h <- t(ORAN_DS$sims.list$alpha)
+o <- as.numeric(t(ORAN_DS$sims.list$omega))
+d <- (ORAN_DS$sims.list$D)
+
+nhab <- 7
+
+#Initialize array (Number of habitats, range of high, number of MCMC iterations)
+habitat <- array(data = 0, 
+                 dim = c(nhab, length(range.high), length(h[1,])))
+
+#Simulate predicted mean 
+for(i in 1:nhab){
+     habitat[i,,] <- apply(rbind(h[i, ], H[i, ]), 2, problam, x = sim.high)
+}
+
+#Initialize array to summarize MCMC
+plothab <- array(data = 0, dim = c(length(range.high), nhab))
+
+
+#Summarize MCMC
+for(i in 1:nhab){
+     plothab[,i] <- apply(habitat[i, , ], 1, mean)
+}
+
+#Convert to data frame
+plothabH <- as.data.frame(cbind(sim.high, plothab))
+
+```
+
+#### low temp
+```{r}
+#Range of rain
+range.low <- seq(15, 25, 0.01)
+
+#Standardize rain range
+sim.low <- (range.low - mean(range.low))/sd(range.low)
+
+#Function to predict mean abundance
+problam <- function(params, x){
+  lam <- exp(params[1] + params[2]*x)
+  return(lam)
+}
+
+# Extract model parameters
+
+L <- t(ORAN_DS$sims.list$betaL)  # low temp beta
+h <- t(ORAN_DS$sims.list$alpha)
+o <- as.numeric(t(ORAN_DS$sims.list$omega))
+d <- (ORAN_DS$sims.list$D)
+
+nhab <- 7
+
+#Initialize array (Number of habitats, range of fruit, number of MCMC iterations)
+habitat <- array(data = 0, 
+                 dim = c(nhab, length(range.low), length(h[1,])))
+
+#Simulate predicted mean 
+for(i in 1:nhab){
+     habitat[i,,] <- apply(rbind(h[i, ], L[i, ]), 2, problam, x = sim.low)
+}
+
+#Initialize array to summarize MCMC
+plothab <- array(data = 0, dim = c(length(range.low), nhab))
+
+
+#Summarize MCMC
+for(i in 1:nhab){
+     plothab[,i] <- apply(habitat[i, , ], 1, mean)
+}
+
+#Convert to data frame
+plothabL <- as.data.frame(cbind(sim.low, plothab))
+
+```
+
+
+
+### plot
+
+```{r}
+
+plot.matrix <- matrix(c(1, 2, 3, 4, 
+                        5, 6, 7, 8), 
+                        nrow = 4, ncol = 2, byrow = FALSE)
+
+#pdf(file = "Marshall-Fig4.pdf", height = 10, width = 8)
+
+setEPS()
+postscript(file = "Marshall-Fig4.eps", 
+           height = 10, width = 8)
+
+layout(mat = plot.matrix)
+
+mar.left   <- c(3, 3, 1.5, 1)
+mar.right  <- c(3, 4, 1.5, 0)
+cex.axis   <- 1.2
+size.point <- 1.2
+
+par(oma = c(2, 6, 2, 0))
+
+par(mar = mar.left)
+
+n <- b$n
+
+# LEFT SIDE
+
+## A. fruit
+
+plot(n ~ exp(b$ORAN_DS.mean.betaf), 
+     col = col.habs[n],
+     pch = 16,
+     cex = 2.25,
+     xlim = c(-0.0, 2.5),
+     ylim = c(1, 7.5),
+     ylab = "",
+     xlab = "",
+     yaxt = "n",
+     bty = 'n',
+     col.axis = "white")
+
+segments(1, 0, 1, 7, lty = 2, lwd = 1)
+
+points(n ~ exp(b$ORAN_DS.mean.betaf), 
+     col = col.habs[n],
+     pch = 16, cex = 2.25)
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q2.5.betaf[i]), b$n[i], 
+         exp(b$ORAN_DS.q97.5.betaf[i]), b$n[i],
+         lwd = 3, col = col.habs[i])
+}
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q25.betaf[i]), b$n[i], 
+         exp(b$ORAN_DS.q75.betaf[i]), b$n[i],
+         lwd = 6, col = col.habs[i])
+}
+
+axis(side = 2, 
+      at = c(1:7),
+      labels =  c("Peat swamp", 
+                 "Freshwater swamp",
+                 "Alluvial bench",
+                 "Lowland sandstone",
+                 "Lowland granite",
+                 "Upland granite",
+                 "Montane"), 
+      las = 1)
+
+mtext("(a) Fruit availability",line = -0.5,
+       side = 3, at = 0,
+       cex = 0.7, adj = 0)
+
+## C. rain
+
+plot(n ~ exp(b$ORAN_DS.mean.betar), 
+     col = col.habs[n],
+     pch = 16,
+     cex = 2.25,
+     xlim = c(-0.0, 2.5),
+     ylim = c(1, 7.5),
+     ylab = "",
+     xlab = "",
+     yaxt = "n",
+     bty = 'n',
+     col.axis = "white")
+
+segments(1, 0, 1, 7, lty = 2, lwd = 1)
+
+points(n ~ exp(b$ORAN_DS.mean.betar), 
+     col = col.habs[n],
+     pch = 16, cex = 2.25)
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q2.5.betar[i]), b$n[i], 
+         exp(b$ORAN_DS.q97.5.betar[i]), b$n[i],
+         lwd = 3, col = col.habs[i])
+}
+
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q25.betar[i]), b$n[i], 
+         exp(b$ORAN_DS.q75.betar[i]), b$n[i],
+         lwd = 6, col = col.habs[i])
+}
+
+axis(side = 2, 
+      at = c(1:7),
+      labels =  c("Peat swamp", 
+                 "Freshwater swamp",
+                 "Alluvial bench",
+                 "Lowland sandstone",
+                 "Lowland granite",
+                 "Upland granite",
+                 "Montane"), 
+      las = 1)
+
+mtext("(c) Rainfall",line = -0.5,
+       side = 3, at = 0,
+       cex = 0.7, adj = 0)
+
+## E. high temp
+
+plot(n ~ exp(b$ORAN_DS.mean.betaH), 
+     col = col.habs[n],
+     pch = 16,
+     cex = 2.25,
+     xlim = c(-0.0, 2.5),
+     ylim = c(1, 7.5),
+     ylab = "",
+     xlab = "",
+     yaxt = "n",
+     bty = 'n',
+     col.axis = "white")
+
+segments(1, 0, 1, 7, lty = 2, lwd = 1)
+
+points(n ~ exp(b$ORAN_DS.mean.betaH), 
+     col = col.habs[n],
+     pch = 16, cex = 2.25)
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q2.5.betaH[i]), b$n[i], 
+         exp(b$ORAN_DS.q97.5.betaH[i]), b$n[i],
+         lwd = 3, col = col.habs[i])
+}
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q25.betaH[i]), b$n[i], 
+         exp(b$ORAN_DS.q75.betaH[i]), b$n[i],
+         lwd = 6, col = col.habs[i])
+}
+
+axis(side = 2, 
+      at = c(1:7),
+      labels =  c("Peat swamp", 
+                 "Freshwater swamp",
+                 "Alluvial bench",
+                 "Lowland sandstone",
+                 "Lowland granite",
+                 "Upland granite",
+                 "Montane"), 
+      las = 1)
+
+mtext("(e) Maximum temperature",line = -0.5,
+       side = 3, at = 0,
+       cex = 0.7, adj = 0)
+
+## G. low temp
+
+plot(n ~ exp(b$ORAN_DS.mean.betaL), 
+     col = col.habs[n],
+     pch = 16,
+     cex = 2.25,
+     xlim = c(-0.0, 2.5),
+     ylim = c(1, 7.5),
+     ylab = "",
+     xlab = "",
+     xaxt = 'n',
+     yaxt = "n",
+     bty = 'n',
+     col.axis = "white")
+
+segments(1, 0, 1, 7, lty = 2, lwd = 1)
+
+points(n ~ exp(b$ORAN_DS.mean.betaL), 
+     col = col.habs[n],
+     pch = 16, cex = 2.25)
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q2.5.betaL[i]), b$n[i], 
+         exp(b$ORAN_DS.q97.5.betaL[i]), b$n[i],
+         lwd = 3, col = col.habs[i])
+}
+
+for (i in 1:7) {
+segments(exp(b$ORAN_DS.q25.betaL[i]), b$n[i], 
+         exp(b$ORAN_DS.q75.betaL[i]), b$n[i],
+         lwd = 6, col = col.habs[i])
+}
+
+axis(side = 2, 
+      at = c(1:7),
+      labels =  c("Peat swamp", 
+                 "Freshwater swamp",
+                 "Alluvial bench",
+                 "Lowland sandstone",
+                 "Lowland granite",
+                 "Upland granite",
+                 "Montane"), 
+      las = 1)
+
+mtext("(g) Minimum temperature",line = -0.5,
+       side = 3, at = 0,
+       cex = 0.7, adj = 0)
+
+axis(side = 1, 
+      at = c(0, 0.5, 1, 1.5, 2.0, 2.5),
+      labels =  c("0", 
+                 "0.5",
+                 "1.0",
+                 "1.5",
+                 "2.0",
+                 "2.5"),
+      cex.axis = 1,
+      las = 1)
+
+mtext (side = 1, text = "Odds ratio",
+       outer = FALSE, cex = 0.65, line = 2.5)
+
+# RIGHT SIDE
+
+par(mar = mar.right)
+col.PS <- col.habs[1]
+col.FS <- col.habs[2]
+col.AB <- col.habs[3]
+col.LS <- col.habs[4]
+col.LG <- col.habs[5]
+col.UG <- col.habs[6]
+col.MO <- col.habs[7]
+
+cex.hab <- 0.35
+cex.ft <- 1.0
+
+## B. fruit
+
+x <- range.fruit
+y <- plothabf
+text.loc <- 100
+
+plot(x, y$V2,
+     bty = 'n', 
+     xlim = c(0, 115), ylim = c(0, 6),
+     cex = cex.hab, col = col.AB,
+     xaxt="n", yaxt ="n",
+     xlab = "",
+     ylab = "")
+text (text.loc, y$V2[dim(y)[1]], "AB",
+      pos = 4, 
+      col = col.AB, cex = cex.ft)
+points(x, y$V3,
+       cex = cex.hab, col = col.FS)
+text (text.loc, y$V3[dim(y)[1]]-0.05, "FS",
+      pos = 4, 
+      col = col.FS, cex = cex.ft)
+points(x, y$V5,
+       cex = cex.hab, col = col.LS)
+text (text.loc, y$V5[dim(y)[1]], "LS",
+      pos = 4, 
+      col = col.LS, cex = cex.ft)
+points(x, y$V4,
+       cex = cex.hab, col = col.LG)
+text (text.loc, y$V4[dim(y)[1]]+0.15, "LG",
+      pos = 4, 
+      col = col.LG, cex = cex.ft)
+points(x, y$V8,
+       cex = cex.hab, col = col.UG)
+text (text.loc, y$V8[dim(y)[1]]-0.15, "UG",
+      pos = 4, 
+      col = col.UG, cex = cex.ft)
+points(x, y$V7,
+       cex = cex.hab, col = col.PS)
+text (text.loc, y$V7[dim(y)[1]] + 0.05, "PS",
+      pos = 4, 
+      col = col.PS, cex = cex.ft)
+points(x, y$V6,
+       cex = cex.hab, col = col.MO)
+text (text.loc, y$V6[dim(y)[1]], "MO",
+      pos = 4, 
+      col = col.MO, cex = cex.ft)
+axis (side = 2, at = c(0, 2, 4, 6), 
+      labels = c("0", "2", "4", "6"), cex.axis = 1, las = 1)
+axis (side = 1, at = c(0, 50, 100), 
+      labels = c("0",  "50", "100"), cex.axis = 1, las = 1)	
+mtext(side = 2, 
+      text = expression(paste("Expected abundance (indiv ",km^-2,") ")),
+      outer = FALSE, cex = 0.65, line = 2, las = 0)
+mtext(side = 1, 
+      text = "Stems with M or R fruit per hectare",
+      outer = FALSE, cex = 0.65, line = 2.5, las = 0)
+mtext("(b)",line = -0.5,
+       side = 3, at = 0,
+       cex = 0.7, adj = 0)
+
+
+## D. rain
+
+x <- range.rain
+y <- plothabr
+text.loc <- 260
+
+plot(x, y$V2,
+     bty = 'n', 
+     xlim = c(0, 300), ylim = c(0, 6),
+     cex = cex.hab, col = col.AB,
+     xaxt="n", yaxt ="n",
+     xlab = "",
+     ylab = "")
+text (text.loc, y$V2[dim(y)[1]], "AB",
+      pos = 4, 
+      col = col.AB, cex = cex.ft)
+points(x, y$V3,
+       cex = cex.hab, col = col.FS)
+text (text.loc, y$V3[dim(y)[1]]-0.05, "FS",
+      pos = 4, 
+      col = col.FS, cex = cex.ft)
+points(x, y$V5,
+       cex = cex.hab, col = col.LS)
+text (text.loc, y$V5[dim(y)[1]], "LS",
+      pos = 4, 
+      col = col.LS, cex = cex.ft)
+points(x, y$V4,
+       cex = cex.hab, col = col.LG)
+text (text.loc, y$V4[dim(y)[1]]+0.1, "LG",
+      pos = 4, 
+      col = col.LG, cex = cex.ft)
+points(x, y$V8,
+       cex = cex.hab, col = col.UG)
+text (text.loc, y$V8[dim(y)[1]]-0.05, "UG",
+      pos = 4, 
+      col = col.UG, cex = cex.ft)
+points(x, y$V7,
+       cex = cex.hab, col = col.PS)
+text (text.loc, y$V7[dim(y)[1]] + 0.05, "PS",
+      pos = 4, 
+      col = col.PS, cex = cex.ft)
+points(x, y$V6,
+       cex = cex.hab, col = col.MO)
+text (text.loc, y$V6[dim(y)[1]], "MO",
+      pos = 4, 
+      col = col.MO, cex = cex.ft)
+axis (side = 2, at = c(0, 2, 4, 6), 
+      labels = c("0", "2", "4", "6"), 
+      cex.axis = 1, las = 1)
+axis (side = 1, at = c(0, 130, 260), 
+      labels = c("0", "130",  "260"), 
+      cex.axis = 1, las = 1)	
+mtext(side = 2, 
+      text = expression(paste("Expected abundance (indiv ",km ^-2,") ")),
+      outer = FALSE, cex = 0.65, line = 2, las = 0)
+mtext("(d)",line = -0.5,
+       side = 3, at = 0,
+       cex = 0.7, adj = 0)
+mtext(side = 1, 
+      text = "Rainfall (mm / month)",
+      outer = FALSE, cex = 0.65, line = 2.5, las = 0)
+
+## F. high temp
+
+x <- range.high
+y <- plothabH
+text.loc <- 36
+
+
+plot(x, y$V2,
+     bty = 'n', 
+     xlim = c(24, 37), ylim = c(0, 6),
+     cex = cex.hab, col = col.AB,
+     xaxt="n", yaxt ="n",
+     xlab = "",
+     ylab = "")
+text (text.loc, y$V2[dim(y)[1]], "AB",
+      pos = 4, 
+      col = col.AB, cex = cex.ft)
+points(x, y$V3,
+       cex = cex.hab, col = col.FS)
+text (text.loc, y$V3[dim(y)[1]]-0.2, "FS",
+      pos = 4,
+      col = col.FS, cex = cex.ft)
+points(x, y$V5,
+       cex = cex.hab, col = col.LS)
+text (text.loc, y$V5[dim(y)[1]], "LS",
+      pos = 4, 
+      col = col.LS, cex = cex.ft)
+points(x, y$V4,
+       cex = cex.hab, col = col.LG)
+text (text.loc, y$V4[dim(y)[1]]-0.1, "LG",
+      pos = 4, 
+      col = col.LG, cex = cex.ft)
+points(x, y$V8,
+       cex = cex.hab, col = col.UG)
+text (text.loc, y$V8[dim(y)[1]]+0.1, "UG",
+      pos = 4, 
+      col = col.UG, cex = cex.ft)
+points(x, y$V7,
+       cex = cex.hab, col = col.PS)
+text (24.5, 2.9, "PS", 
+      col = col.PS, cex = cex.ft)
+points(x, y$V6,
+       cex = cex.hab, col = col.MO)
+text (text.loc, y$V6[dim(y)[1]]-0.1, "MO",
+      pos = 4, 
+      col = col.MO, cex = cex.ft)
+axis (side = 2, at = c(0, 2, 4, 6), 
+      labels = c("0", "2", "4", "6"), 
+      cex.axis = 1, las = 1)
+axis (side = 1, at = c(24, 30, 36), 
+      labels = c("24", "30", "36"), 
+      cex.axis = 1, las = 1)	
+mtext(side = 2, 
+      text = expression(paste("Expected abundance (indiv ",km^-2,") ")),
+      outer = FALSE, cex = 0.65, line = 2, las = 0)
+mtext(side = 1, 
+      text = "Maximum monthly temperature (°C)",
+      outer = FALSE, cex = 0.65, line = 2.5, las = 0)
+mtext("(f)",line = -0.5,
+       side = 3, at = 24,
+       cex = 0.7, adj = 0)
+
+## H. low temp
+
+x <- range.low
+y <- plothabL
+text.loc <- 25
+
+
+plot(x, y$V2,
+     bty = 'n', 
+     xlim = c(15, 26), ylim = c(0, 6),
+     cex = cex.hab, col = col.AB,
+     xaxt="n", yaxt ="n",
+     xlab = "",
+     ylab = "")
+text (15, 3.75, "AB",
+      pos = 4, 
+      col = col.AB, cex = cex.ft)
+points(x, y$V3,
+       cex = cex.hab, col = col.FS)
+text (15, 2.25, "FS",
+      pos = 4, 
+      col = col.FS, cex = cex.ft)
+points(x, y$V5,
+       cex = cex.hab, col = col.LS)
+text (15, 5.25, "LS",
+      pos = 4, 
+      col = col.LS, cex = cex.ft)
+points(x, y$V4,
+       cex = cex.hab, col = col.LG)
+text (text.loc, y$V4[dim(y)[1]]-0.1, "LG",
+      pos = 4, 
+      col = col.LG, cex = cex.ft)
+points(x, y$V8,
+       cex = cex.hab, col = col.UG)
+text (text.loc, y$V8[dim(y)[1]], "UG",
+      pos = 4, 
+      col = col.UG, cex = cex.ft)
+points(x, y$V7,
+       cex = cex.hab, col = col.PS)
+text (text.loc, y$V7[dim(y)[1]]-0.05, "PS",
+      pos = 4,
+      col = col.PS, cex = cex.ft)
+points(x, y$V6,
+       cex = cex.hab, col = col.MO)
+text (text.loc, y$V6[dim(y)[1]]+0.25, "MO",
+      pos = 4, 
+      col = col.MO, cex = cex.ft)
+axis (side = 2, at = c(0, 2, 4, 6), 
+      labels = c("0", "2", "4", "6"), 
+      cex.axis = 1, las = 1)
+axis (side = 1, at = c(15, 20, 25), 
+      labels = c("15", "20", "25"), 
+      cex.axis = 1, las = 1)	
+mtext(side = 2, 
+      text = expression(paste("Expected abundance (indiv ",km^-2,") ")),
+      outer = FALSE, cex = 0.65, line = 2, las = 0)
+mtext(side = 1, 
+      text = "Minimum monthly temperature (°C)",
+      outer = FALSE, cex = 0.65, line = 2.5, las = 0)
+mtext("(h)", line = -0.5,
+       side = 3, at = 15,
+       cex = 0.7, adj = 0)
+
+dev.off()
+```
+
+
+
+
+## SI Fig 2. Forest type & food availability plots     
+
+This uses data corrected for detection probability (y ~ dbin(N, p) -> D), but does not include environmental stochasticity coming from the next hierarchical level of the Poisson distribution (N ~ dpois(lambda) -> ED).
+
+```{r}
+
+#Raw (i.e., not modeled) density values
+tmpHD <- data.frame(apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                MARGIN = c(2, 3), mean))
+colnames(tmpHD) <- c("PS", "FS", "AB", "LS", "LG", "UG", "MO")
+
+CIs <- apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                  MARGIN = c(2,3), quantile,
+                                  probs = c(0.025, 0.975))
+
+pdf(file = "Marshall-SI-Fig2.pdf", height = 10, width = 8)
+
+
+plot.matrix <- matrix(c(1, 2, 3, 4, 5, 6, 7,
+                        8, 9, 10, 11, 12, 13, 14,
+                        8, 9, 10, 11, 12, 13, 14), 
+                        nrow = 7, ncol = 3, byrow = FALSE)
+
+fruit <- as.data.frame(stem2[, c(6, 2, 1, 4, 3, 7, 5)])
+
+layout(mat = plot.matrix)
+
+mar.left   <- c(0, 2, 1.5, 2)
+mar.right  <- c(0, 0, 1.5, 4)
+cex.axis   <- 1.2
+col.CIs    <- makeTransparent("gray60")
+col.bars   <- makeTransparent("gray40")
+col.bords  <- "gray60"
+size.point <- 1.2
+axis.cols  <- c("black", "white", "white", 
+                "white", "white", "white", "white")
+cex.labs <- 1.2
+
+box.letters <- c("(m)", 
+                 "(k)",
+                 "(i)",
+                 "(g)",
+                 "(e)",
+                 "(c)",
+                 "(a)")
+
+par(oma = c(6, 4, 2, 2))
+
+for (i in 7:1) {
+par(mar = mar.left)
+
+oh <- tmpHD[, i]
+fr <- fruit[, i]
+
+plot(oh ~ fr,
+     pch = 16,
+     col = "white",
+     yaxt = "n",
+     ylim = c(-0.5, 22),
+     xlim = c(0, 100),
+     ylab = "",
+     xlab = "",
+     xaxt = 'n',
+     bty = 'n')
+
+m <- lm(oh ~ fr)
+xvals <- seq(from = 0, to = 100 , by = 0.01)
+df <- data.frame(fr = xvals)
+CI <- predict(m, newdata = df, interval = "confidence")
+CI <- as.data.frame(CI)
+polygon(c(xvals, rev(xvals)),
+     c(CI$lwr, rev(CI$upr)),
+     border = NA,
+     col = col.CIs)
+lines(xvals, CI[, 1], col = "gray60", lwd =  1.75)
+
+points(oh ~ fr,
+     pch = 16,
+     cex = size.point,
+     col = tcol.habs[i])
+axis (side = 1, 
+      at = c(0, 50, 100),
+      labels = c("0", "50", "100"),
+      col.axis = axis.cols[i],
+      cex.axis = cex.axis,
+      las = 1)
+axis (side = 2, 
+      at = c(0, 10, 20),
+      labels = c("0", "10", "20"), 
+      cex.axis = cex.axis,
+      las = 1,
+      col = col.habs[i])
+text (0, 21, 
+      labels = box.letters[i], 
+      pos = 4,
+      cex = cex.labs)
+
+}
+
+mtext (side = 1, text = "Stems with M or R \n fruit per hectare ",
+       outer = FALSE, cex = 0.8, line = 4)
+box.letters <- c("(n) Peat swamp", 
+                 "(l) Freshwater swamp",
+                 "(j) Alluvial bench",
+                 "(h) Lowland sandstone",
+                 "(f) Lowland granite",
+                 "(d) Upland granite",
+                 "(b) Montane")
+
+for (i in 7:1) {
+
+oh <- tmpHD [, i]
+fr <- fruit[, i]
+
+par(mar = mar.right)
+barplot(fr,
+        ylim = c (0, 100),
+        space = 0,
+        yaxt = "n",
+        border = col.bords,
+        ylab = "",
+        xlab = "",
+        bty = 'n',
+        col = col.bars)
+axis (side = 4, 
+      at = c(0, 50, 100),
+      labels = c("0", "50", "100"),
+      cex.axis = cex.axis,
+      las = 1, 
+      col = col.bords,
+      col.axis = col.bords)
+
+par(new = TRUE)
+plot(oh ~ time, 
+     type = 'l', 
+     col = col.habs[i],
+     yaxt = "n",
+     ylab = "",
+     xlab = "",
+     ylim = c(-0.5, 22),
+     xaxt = 'n',
+     bty = 'n',
+     lwd = 2)
+axis (side = 2, 
+      at = c(0, 10, 20),
+      labels = c("", "", ""), 
+      cex.axis = 1,
+      las = 1,
+      col = col.habs[i])
+
+abline(h = mean(oh), lty = 2, col = tcol.habs[i])
+
+text (time[1], 21, 
+      labels = box.letters[i], 
+      pos = 4,
+      offset = -0.00000000000000001,
+      cex = cex.labs)
+
+}
+
+axis (side = 1, 
+      at = c(time[4], time[28], time[52], time[76], time[99]),
+      labels = c("2008", "2010", "2012", "2014", "2016"), 
+      cex.axis = cex.axis,
+      las = 1)
+
+
+mtext (side = 2, text = expression(paste			("Orangutan density (indiv ",km^-2,")")),
+       outer = TRUE, cex = 1, line = 1)
+
+mtext (side = 4, text = "Stems with M or R fruit per hectare",
+       outer = TRUE, 
+       col = "gray40",
+       las = 0,
+       cex = 1, line = 0)
+
+dev.off()
+```
+
+# TABLES
+
+## ESM 3. orangutan correlation matrix
+
+```{r}
+
+tmpHD <- data.frame(apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                MARGIN = c(2, 3), mean))
+
+ohcormatrix <- cor(tmpHD)
+
+colnames(ohcormatrix) <-  c("PS.oh", "FS.oh", "AB.oh",
+                           "LS.oh", "LG.oh", "UG.oh",
+                           "MO.oh")
+rownames(ohcormatrix) <-  c("PS.oh", "FS.oh", "AB.oh",
+                           "LS.oh", "LG.oh", "UG.oh",
+                           "MO.oh")
+ohcormatrix
+write.table(ohcormatrix, "table esm3.csv", sep =",")
+
+```
+
+## ESM 4. fruit correlation matrix
+
+```{r}
+
+fruitcormatrix <- cor(na.omit(fruit))
+
+colnames(fruitcormatrix) <-  c("PS.fr", "FS.fr", "AB.fr",
+                           "LS.fr", "LG.fr", "UG.fr",
+                           "MO.fr")
+rownames(fruitcormatrix) <-  c("PS.fr", "FS.fr", "AB.fr",
+                           "LS.fr", "LG.fr", "UG.fr",
+                           "MO.fr")
+fruitcormatrix
+write.table(fruitcormatrix, "table esm4.csv", sep =",")
+
+```
+
+## Table 1. oh-fr correlation matrix
+
+```{r}
+
+#Raw (i.e., not modeled) density values
+tmpHD <- data.frame(apply(ORAN_DS$sims.list$D[, nmon, c(6, 2, 1, 4, 3, 7, 5)],
+                                MARGIN = c(2, 3), mean))
+colnames(tmpH) <- c("PS", "FS", "AB", "LS", "LG", "UG", "MO")
+
+
+cor.vector <- NULL
+cor.matrix <- NULL
+
+for (i in 1:7) {
+for (j in 1:7) {
+x <- cor(tmpHD[, i], fruit[, j], use = "complete.obs")
+cor.vector <- c(cor.vector, x)
+      }
+cor.matrix <- cbind(cor.matrix, cor.vector)
+cor.vector <- NULL
+}
+
+colnames(cor.matrix) <-  c("PS.oh", "FS.oh", "AB.oh",
+                           "LS.oh", "LG.oh", "UG.oh",
+                           "MO.oh")
+rownames(cor.matrix) <-  c("PS.fr", "FS.fr", "AB.fr",
+                           "LS.fr", "LG.fr", "UG.fr",
+                           "MO.fr")
+
+cor.matrix
+write.table(cor.matrix, "table 1.csv", sep =",")
+
+```
+
