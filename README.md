@@ -4,6 +4,8 @@
 
 This folder contains all code necessary to replicate analysis, results, and figures for Marshall et al. orangutan analysis in Oecologia.
 
+https://doi.org/10.1007/s00442-021-04964-1
+
 Title: Biotic and abiotic drivers of dispersion dynamics in a large-bodied tropical vertebrate, the Western Bornean orangutan
 
 Authors: Andrew J. Marshall*, Matthew T. Farr, Lydia Beaudrot, Elise F. Zipkin, Katie L. Feilen, Loren G. Bell, Endro Setiawan, Tri Wahyu Susanto, Tatang Mitra Setia, Mark Leighton, and Heiko U. Wittmer
