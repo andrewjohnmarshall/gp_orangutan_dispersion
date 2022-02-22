@@ -34,4 +34,5 @@ The file "ORAN_figs.Rmd" draws data from  "ORAN_OUTPUT.Rdata" and produces the f
 
 All code ran and produced the relevant output in R 4.1.0 on 2021-06-16 using an M1 Mac Mini running OS 11.4.
 
-This repo is a duplicate of information available at https://figshare.com/articles/software/code/14731890.
+This repo is a duplicate of information available at https://figshare.com/articles/software/code/14731890 and https://doi.org/10.6084/m9.figshare.14731866
+
